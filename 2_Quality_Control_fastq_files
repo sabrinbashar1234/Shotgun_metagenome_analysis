@@ -1,1 +1,73 @@
+##Install necessary packages (the sbatch code was saved as 'install_tools.sh' and all the tools saved in 'tools' folder in scratch:
 
+#!/bin/bash
+
+#SBATCH --account=def-account name
+#SBATCH --time=10:00:00
+#SBATCH --job-name=install_qc_tools
+#SBATCH --output=output.txt
+#SBATCH --error=error.txt
+
+# Set the tools folder in your scratch directory
+TOOLS_FOLDER="$SCRATCH/tools"
+FASTQC_VERSION="v0.11.9"
+
+# Create the tools folder if it doesn't exist
+mkdir -p $TOOLS_FOLDER
+
+# Function to install FastQC
+install_fastqc() {
+    echo "Installing FastQC"
+    cd $TOOLS_FOLDER
+    wget https://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_${FASTQC_VERSION}.zip
+    unzip fastqc_${FASTQC_VERSION}.zip
+    chmod 755 FastQC/fastqc
+    rm fastqc_${FASTQC_VERSION}.zip
+}
+
+# Function to install Trimmomatic
+install_trimmomatic() {
+    echo "Installing Trimmomatic"
+    cd $TOOLS_FOLDER
+    wget http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/Trimmomatic-0.39.zip
+    unzip Trimmomatic-0.39.zip
+    rm Trimmomatic-0.39.zip
+}
+
+# Function to install Sickle
+install_sickle() {
+    echo "Installing Sickle"
+    cd $TOOLS_FOLDER
+    wget https://github.com/najoshi/sickle/archive/v1.33.tar.gz
+    tar -xzvf v1.33.tar.gz
+    cd sickle-1.33/
+    make
+    cd ..
+    rm v1.33.tar.gz
+}
+# Function to install BBMap
+install_bbmap() {
+    echo "Installing BBMap"
+    cd $TOOLS_FOLDER
+    wget https://sourceforge.net/projects/bbmap/files/BBMap_38.44.tar.gz
+    tar -xzvf BBMap_38.44.tar.gz
+    rm BBMap_38.44.tar.gz
+}
+
+# Function to install Prinseq
+install_prinseq() {
+    echo "Installing Prinseq"
+    cd $TOOLS_FOLDER
+    wget https://sourceforge.net/projects/prinseq/files/standalone/prinseq-lite-0.20.4.tar.gz
+    tar -xzvf prinseq-lite-0.20.4.tar.gz
+    rm prinseq-lite-0.20.4.tar.gz
+}
+
+# Install all tools
+install_fastqc
+install_trimmomatic
+install_sickle
+install_bbmap
+install_prinseq
+
+echo "All tools have been installed in $TOOLS_FOLDER"
