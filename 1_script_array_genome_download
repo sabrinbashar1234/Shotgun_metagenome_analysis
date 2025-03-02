@@ -68,7 +68,30 @@ if [ $? -ne 0 ]; then
     echo "Error downloading $SRS_ID. Check $ERROR_LOG/${SRS_ID}_error.log for details." >> $ERROR_LOG/download_summary.log
 fi
 
-##Checking whether all 144 folder have both fastq files:
+
+##Checking whether all 144 folder have both fastq files (total 288):
+
+total_fastq=$(find /scratch/sbashar/missing_SRS_144 -name "*.fastq.gz" | wc -l)
+incomplete_srs=$(find /scratch/sbashar/missing_SRS_144 -type d -name "SRS*" | while read dir; do
+    fastq_count=$(find "$dir" -maxdepth 2 -name "*.fastq.gz" | wc -l)
+    if [ "$fastq_count" -ne 2 ]; then
+        echo "$(basename "$dir")"
+    fi
+done)
+
+echo "Total fastq files: $total_fastq"
+if [ -z "$incomplete_srs" ]; then
+    echo "All SRS folders have 2 fastq files."
+else
+    echo "SRS folders with incorrect number of fastq files:"
+    echo "$incomplete_srs"
+fi
+##this above command will:
+#Count the total number of fastq.gz files in the missing_SRS_144 directory and its subdirectories.
+#Check each SRS folder for exactly 2 fastq.gz files.
+#Report the total number of fastq files found.
+#List any SRS folders that don't have exactly 2 fastq files, if any.
+#If the total fastq files is 288 and no SRS folders are listed as incomplete, then all SRS folders have 2 fastq files as expected
 
 
 
