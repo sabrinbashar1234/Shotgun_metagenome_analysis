@@ -1,4 +1,4 @@
-##Using Graham, working_directory:Scratch, here is the code:
+##Using Graham, working_directory: Scratch, here is the code:
 cd ~
 wget https://github.com/enasequence/enaBrowserTools/archive/refs/heads/master.zip
 unzip master.zip
@@ -6,7 +6,7 @@ rm master.zip
 ##to confirm the tool stored in scratch:
 find /scratch/account_name -name "enaBrowserTools-master" -type d
 
-##missing_srs.txt created by which genome were not downloaded. I used this SRS list for downloading genomes
+##missing_srs.txt created by which genomes were not downloaded. I used this SRS list for downloading genomes
 ##craeted a file named 'download_srs.py'. Here is the code:
 import sys
 import subprocess
@@ -67,6 +67,8 @@ $ENABROWSER_PATH/enaGroupGet -f fastq -d $OUTPUT_DIR -m $SRS_ID 1> $OUTPUT_LOG/$
 if [ $? -ne 0 ]; then
     echo "Error downloading $SRS_ID. Check $ERROR_LOG/${SRS_ID}_error.log for details." >> $ERROR_LOG/download_summary.log
 fi
+
+##Checking whether all 144 folder have both fastq files:
 
 
 
