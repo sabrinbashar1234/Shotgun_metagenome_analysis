@@ -1,0 +1,66 @@
+##Using Graham, working_directory:Scratch
+##missing_srs.txt created by which genome were not downloaded. I used this SRS list for downloading genomes
+##craeted a file named 'download_srs.py'. Here is the code:
+import sys
+import subprocess
+
+def download_srs(srs_id, output_dir):
+    command = f"enaGroupGet -f fastq -d {output_dir} -m {srs_id}"
+
+    try:
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        print(f"Successfully downloaded: {srs_id}")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to download: {srs_id}")
+        print(e.stderr)
+
+if __name__ == "__main__":
+    srs_id = sys.argv[1]
+    output_dir = sys.argv[2]
+    download_srs(srs_id, output_dir)
+
+
+##Then submitted the job to Slurm as "download_srs_array.sh " for 144 genomes which were missing SRS. Here is the code for this 144 array: (change the account name)
+
+#!/bin/bash
+#SBATCH --account=#def-account name
+#SBATCH --time=10:00:00
+#SBATCH --array=1-144
+#SBATCH --mem=4G
+#SBATCH --job-name=download_srs
+
+# Load necessary modules
+module load python/3.8.10
+
+# Set variables
+WORK_DIR=/scratch/your_account_name
+INPUT_FILE=$WORK_DIR/missing_srs.txt
+OUTPUT_DIR=$WORK_DIR/missing_SRS_144
+LOG_DIR=$WORK_DIR/logs
+ERROR_LOG=$LOG_DIR/errors
+OUTPUT_LOG=$LOG_DIR/output
+ENABROWSER_PATH=$WORK_DIR/enaBrowserTools-master/python3
+
+# Create output and log directories
+mkdir -p $OUTPUT_DIR
+mkdir -p $ERROR_LOG
+mkdir -p $OUTPUT_LOG
+
+# Change to work directory
+cd $WORK_DIR
+
+# Get the SRS ID for this job array task
+SRS_ID=$(sed -n "${SLURM_ARRAY_TASK_ID}p" $INPUT_FILE)
+
+# Run enaGroupGet to download the SRS file
+$ENABROWSER_PATH/enaGroupGet -f fastq -d $OUTPUT_DIR -m $SRS_ID 1> $OUTPUT_LOG/${SRS_ID}_output.log 2> $ERROR_LOG/${SRS_ID}_error.log
+
+# Check if the download encountered any errors
+if [ $? -ne 0 ]; then
+    echo "Error downloading $SRS_ID. Check $ERROR_LOG/${SRS_ID}_error.log for details." >> $ERROR_LOG/download_summary.log
+fi
+
+
+
+
