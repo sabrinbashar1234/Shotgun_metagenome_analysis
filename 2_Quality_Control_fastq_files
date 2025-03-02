@@ -71,3 +71,10 @@ install_bbmap
 install_prinseq
 
 echo "All tools have been installed in $TOOLS_FOLDER"
+
+
+## Trimmomatric test
+# first I created first 500 SRS number using this code as cloud did not support 2934 arrays:
+
+head -n 500 /home/sbashar/scratch/srs_all_144_folders.csv > /home/sbashar/scratch/srs_first_500.csv
+
