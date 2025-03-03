@@ -1,3 +1,119 @@
+
+##In Alliance the tools are already installed except Sickle. I used only Trimmomatic
+##Before running Trimmomatic:
+    #I made sure all fastq file has accessible permission
+    #I divided into 6 tasks (for 2934 samples) of array (each had 500 arrays) as Alliance has a job limit
+
+##Final trimmomatic code for 500 arrays (here first 500 given):
+
+#!/bin/bash
+#SBATCH --account=def-account #change account name
+#SBATCH --job-name=trim_first_500_mar3
+#SBATCH --time=00:30:00
+#SBATCH --mem=4G
+#SBATCH --output=/home/account_name/scratch/trim_logs/trim_500_%a.out #change account name
+#SBATCH --error=/home/account_name/scratch/trim_logs/trim_500_%a.err  #change account name
+#SBATCH --array=1-500%25
+#SBATCH --cpus-per-task=4
+
+# Load necessary modules
+module load trimmomatic
+
+# Set variables
+SCRATCH_DIR="/home/account_name/scratch"  #change account name
+MISSING_SRS_DIR="$SCRATCH_DIR/missing_SRS_144"  # Corrected Path
+#TOOLS_DIR="$SCRATCH_DIR/tools" # Not Needed
+CSV_FILE="$SCRATCH_DIR/srs_first_500.csv"
+
+# Make sure the CSV file exists
+if [ ! -f "$CSV_FILE" ]; then
+  echo "Error: CSV file $CSV_FILE not found."
+  exit 1
+fi
+
+# Get the SRS folder name from the CSV file based on the array index
+SRS_FOLDER=$(sed "${SLURM_ARRAY_TASK_ID}q;d" "$CSV_FILE")
+
+echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
+echo "CSV_FILE: $CSV_FILE"
+echo "SRS_FOLDER from CSV: $SRS_FOLDER"
+
+# Check if the SRS folder exists
+if [ ! -d "$MISSING_SRS_DIR/$SRS_FOLDER" ]; then
+  echo "Error: SRS folder $MISSING_SRS_DIR/$SRS_FOLDER does not exist."
+  exit 1
+fi
+
+# Find the SRR folder inside the SRS folder
+SRR_FOLDER=$(find "$MISSING_SRS_DIR/$SRS_FOLDER" -maxdepth 1 -type d -name "SRR*")
+echo "SRR_FOLDER: $SRR_FOLDER"
+
+# Check if SRR folder exists
+if [ -z "$SRR_FOLDER" ]; then
+    echo "Error: No SRR folder found inside $MISSING_SRS_DIR/$SRS_FOLDER"
+    exit 1
+fi
+
+# Extract the SRR ID from the path
+SRR_ID=$(basename "$SRR_FOLDER")
+echo "SRR_ID: $SRR_ID"
+
+# Define input FASTQ files
+INPUT_1="$SRR_FOLDER/${SRR_ID}_1.fastq.gz"
+INPUT_2="$SRR_FOLDER/${SRR_ID}_2.fastq.gz"
+echo "INPUT_1: $INPUT_1"
+echo "INPUT_2: $INPUT_2"
+
+# Check if input files exist
+if [ ! -f "$INPUT_1" ] || [ ! -f "$INPUT_2" ]; then
+    echo "Error: Input FASTQ files not found for $SRR_ID"
+    echo "Looking for: $INPUT_1 and $INPUT_2"
+    exit 1
+fi
+
+# Define output file names
+OUTPUT_BASE="$SCRATCH_DIR/trimmomatic_output/$SRS_FOLDER/$SRR_ID"
+OUTPUT_1_CLEAN="$OUTPUT_BASE.1.clean.fq.gz"
+OUTPUT_1_UNPAIRED="$OUTPUT_BASE.1.unpaired.fq.gz"
+OUTPUT_2_CLEAN="$OUTPUT_BASE.2.clean.fq.gz"
+OUTPUT_2_UNPAIRED="$OUTPUT_BASE.2.unpaired.fq.gz"
+
+# Create the output directory if it doesn't exist
+mkdir -p "$SCRATCH_DIR/trimmomatic_output/$SRS_FOLDER"
+
+# Run Trimmomatic
+java -Xmx2g -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE \
+    -threads $SLURM_CPUS_PER_TASK \
+    -trimlog "$SCRATCH_DIR/trimmomatic_output/$SRS_FOLDER/$SRR_ID.trimlog" \
+    "$INPUT_1" "$INPUT_2" \
+    "$OUTPUT_1_CLEAN" "$OUTPUT_1_UNPAIRED" "$OUTPUT_2_CLEAN" "$OUTPUT_2_UNPAIRED" \
+    ILLUMINACLIP:"$ADAPTER_FILE":2:30:10 \
+    LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+
+echo "Trimmomatic completed for $SRS_FOLDER / $SRR_ID"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##Install necessary packages (the sbatch code was saved as 'install_tools.sh' and all the tools saved in 'tools' folder in scratch:
 
 #!/bin/bash
