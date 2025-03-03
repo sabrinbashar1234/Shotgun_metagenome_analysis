@@ -1,8 +1,15 @@
-
+##Worked in Beluga
 ##In Alliance the tools are already installed except Sickle. I used only Trimmomatic
 ##Before running Trimmomatic:
     #I made sure all fastq file has accessible permission
+
+
+
+
     #I divided into 6 tasks (for 2934 samples) of array (each had 500 arrays) as Alliance has a job limit
+
+
+
 
 ##Final trimmomatic code for 500 arrays (here first 500 given):
 
