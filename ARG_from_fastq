@@ -1,0 +1,7 @@
+
+
+module load StdEnv/2020
+module load python/2.7.18
+
+virtualenv --no-download deeparg_env
+source deeparg_env/bin/activate
