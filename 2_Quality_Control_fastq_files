@@ -77,4 +77,8 @@ echo "All tools have been installed in $TOOLS_FOLDER"
 # first I created first 500 SRS number using this code as cloud did not support 2934 arrays:
 
 head -n 500 /home/sbashar/scratch/srs_all_144_folders.csv > /home/sbashar/scratch/srs_first_500.csv
-
+##for next 500*5 files the files were created in this way:
+ tail -n +1001 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_1001-1500.csv
+tail -n +1501 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_1501-2000.csv
+tail -n +2001 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_2001-2500.csv
+tail -n +2501 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_2501-2934.csv
