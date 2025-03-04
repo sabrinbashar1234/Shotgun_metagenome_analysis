@@ -24,7 +24,7 @@ module load trimmomatic
 SCRATCH_DIR="/home/account_name/scratch"  #change account name
 MISSING_SRS_DIR="$SCRATCH_DIR/missing_SRS_144"  # Corrected Path
 #TOOLS_DIR="$SCRATCH_DIR/tools" # Not Needed
-CSV_FILE="$SCRATCH_DIR/srs_first_500.csv"
+CSV_FILE="$SCRATCH_DIR/srs_first_500.csv" ##changed the .csv according to the SRS.trim.csv mentioned below
 
 # Make sure the CSV file exists
 if [ ! -f "$CSV_FILE" ]; then
