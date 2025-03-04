@@ -93,6 +93,46 @@ java -Xmx2g -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE \
 
 echo "Trimmomatic completed for $SRS_FOLDER / $SRR_ID"
 
+##check all the SRS folders contain the 4 desired files mentioned in the code; the file named 'check_srs_files.sh':
+#!/bin/bash
+
+# Define the required file patterns
+REQUIRED_FILES=(
+  "*.1.clean.fq.gz"
+  "*.1.unpaired.fq.gz"
+  "*.2.clean.fq.gz"
+  "*.2.unpaired.fq.gz"
+)
+
+# Loop through each SRS* folder
+for SRS_FOLDER in SRS*; do
+  # Check if it's a directory
+  if [ ! -d "$SRS_FOLDER" ]; then
+    continue  # Skip if it's not a directory
+  fi
+
+  MISSING_FILES=()
+
+  # Loop through each required file pattern
+  for FILE_PATTERN in "${REQUIRED_FILES[@]}"; do
+    # Find files matching the current pattern in the current SRS folder
+    FILES=$(find "$SRS_FOLDER" -maxdepth 1 -type f -name "$FILE_PATTERN")
+
+    # If no files are found, add the pattern to the MISSING_FILES array
+    if [ -z "$FILES" ]; then
+      MISSING_FILES+=("$FILE_PATTERN")
+    fi
+  done
+
+  # If there are any missing files, report them
+  if [ ${#MISSING_FILES[@]} -gt 0 ]; then
+    echo "SRS folder '$SRS_FOLDER' is missing the following files:"
+    for MISSING_FILE in "${MISSING_FILES[@]}"; do
+      echo "  - $MISSING_FILE"
+    done
+  fi
+done
+
 
 
 
