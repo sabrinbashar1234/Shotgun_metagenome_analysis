@@ -2,13 +2,7 @@
 ##In Alliance the tools are already installed except Sickle. I used only Trimmomatic
 ##Before running Trimmomatic:
     #I made sure all fastq file has accessible permission
-
-
-
-
     #I divided into 6 tasks (for 2934 samples) of array (each had 500 arrays) as Alliance has a job limit
-
-
 
 
 ##Final trimmomatic code for 500 arrays (here first 500 given):
@@ -205,3 +199,108 @@ head -n 500 /home/sbashar/scratch/srs_all_144_folders.csv > /home/sbashar/scratc
 tail -n +1501 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_1501-2000.csv
 tail -n +2001 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_2001-2500.csv
 tail -n +2501 /home/sbashar/scratch/srs_all_144_folders.csv | head -n 500 > /home/sbashar/scratch/srs_2501-2934.csv
+
+##how I created fastq permission. I divided SRS number into 3 part (1000 SRS for each job). This code is for first 1000:
+#!/bin/bash
+#SBATCH --account=def-kozyrsky
+#SBATCH --job-name=fix_permissions_1_1000
+#SBATCH --time=2:00:00       # Adjust time as needed
+#SBATCH --mem=4G              # Adjust memory as needed
+#SBATCH --array=1-1000        # Array job for first 1000 SRS folders
+#SBATCH --output=fix_permissions_1_1000_%a.out
+#SBATCH --error=fix_permissions_1_1000_%a.err
+#SBATCH --cpus-per-task=4    # Request 4 CPUs per task
+
+SCRATCH_DIR="/home/sbashar/scratch"
+MISSING_SRS_DIR="/home/sbashar/scratch/missing_SRS_144" # or wherever your SRS folders are
+# Calculate the SRS folder index based on the array task ID
+SRS_INDEX=$SLURM_ARRAY_TASK_ID
+
+# Create a list of SRS folders
+SRS_FOLDERS=$(find "$MISSING_SRS_DIR" -maxdepth 1 -type d -name "SRS*" | sort)
+
+# Get the specific SRS folder for this task
+SRS_FOLDER=$(echo "$SRS_FOLDERS" | sed -n "${SRS_INDEX}p")
+
+if [ -z "$SRS_FOLDER" ]; then
+  echo "Error: SRS folder not found for index $SRS_INDEX"
+  exit 1
+fi
+
+echo "Processing SRS folder: $SRS_FOLDER"
+
+# Find SRR folder inside the SRS folder
+SRR_FOLDER=$(find "$SRS_FOLDER" -maxdepth 1 -type d -name "SRR*")
+
+if [ -z "$SRR_FOLDER" ]; then
+  echo "  No SRR folder found in $SRS_FOLDER"
+  exit 0  # Exit gracefully, not an error
+fi
+
+# Find FASTQ files inside the SRR folder
+FASTQ_FILES=$(find "$SRR_FOLDER" -maxdepth 1 -type f -name "*fastq.gz")
+
+if [ -z "$FASTQ_FILES" ]; then
+  echo "  No FASTQ files found in $SRR_FOLDER"
+  exit 0  # Exit gracefully, not an error
+fi
+
+# Check and correct permissions for each FASTQ file
+for FASTQ_FILE in $FASTQ_FILES; do
+  # Get current permissions
+ PERMISSIONS=$(stat -c "%A" "$FASTQ_FILE")
+  echo "   File: $FASTQ_FILE, Current Permissions: $PERMISSIONS"
+
+  # Check if permissions are not rw-r--r--
+  if [ "$PERMISSIONS" != "-rw-r--r--" ]; then
+    echo "    Correcting permissions for $FASTQ_FILE"
+    chmod a+r "$FASTQ_FILE"  # Add read permission for all
+  fi
+done
+##For the second 1000 SRS, I calculate at the beginning:
+
+#!/bin/bash
+#SBATCH --account=def-kozyrsky
+#SBATCH --job-name=fix_permissions_1001_2000
+#SBATCH --time=2:00:00       # Adjust time as needed
+#SBATCH --mem=4G              # Adjust memory as needed
+#SBATCH --array=1-1000        # Array job for SRS folders 1001-2000
+#SBATCH --output=fix_permissions_1001_2000_%a.out
+#SBATCH --error=fix_permissions_1001_2000_%a.err
+#SBATCH --cpus-per-task=4    # Request 4 CPUs per task
+
+SCRATCH_DIR="/home/sbashar/scratch"
+MISSING_SRS_DIR="/home/sbashar/scratch/missing_SRS_144" # or wherever your SRS folders are
+# Calculate the SRS folder index based on the array task ID ##this part added
+SRS_INDEX=$((SLURM_ARRAY_TASK_ID + 1000))
+
+# Create a list of SRS folders
+SRS_FOLDERS=$(find "$MISSING_SRS_DIR" -maxdepth 1 -type d -name "SRS*" | sort)
+
+# Get the specific SRS folder for this task
+SRS_FOLDER=$(echo "$SRS_FOLDERS" | sed -n "${SRS_INDEX}p")
+.....and rest is same as above
+
+##For next 934 SRS, the code is below:
+#!/bin/bash
+#SBATCH --account=def-kozyrsky
+#SBATCH --job-name=fix_permissions_2001_2934
+#SBATCH --time=2:00:00       # Adjust time as needed
+#SBATCH --mem=4G              # Adjust memory as needed
+#SBATCH --array=1-934         # Array job for SRS folders 2001-2934
+#SBATCH --output=fix_permissions_2001_2934_%a.out
+#SBATCH --error=fix_permissions_2001_2934_%a.err
+#SBATCH --cpus-per-task=4    # Request 4 CPUs per task
+
+SCRATCH_DIR="/home/sbashar/scratch"
+MISSING_SRS_DIR="/home/sbashar/scratch/missing_SRS_144" # or wherever your SRS folders are
+
+# Calculate the SRS folder index based on the array task ID ##here the changes added
+SRS_INDEX=$((SLURM_ARRAY_TASK_ID + 2000))
+
+# Create a list of SRS folders
+SRS_FOLDERS=$(find "$MISSING_SRS_DIR" -maxdepth 1 -type d -name "SRS*" | sort)
+
+...... the rest is same as above
+
+
