@@ -1,0 +1,10 @@
+
+
+
+##install Metaphlan:
+#upgraded Pip first
+module spider scipy
+module load scipy-stack/2021a
+ python -c "import scipy; print(scipy.__version__)" #1.7.0
+pip install --no-cache-dir metaphlan 
+ metaphlan --version ##MetaPhlAn version 4.1.1 (11 Mar 2024)
