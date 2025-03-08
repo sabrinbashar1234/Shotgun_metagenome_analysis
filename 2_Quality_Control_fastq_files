@@ -133,7 +133,123 @@ for SRS_FOLDER in SRS*; do
   fi
 done
 
+##using bbduk for Phix Adapter contamination
+##generated csv files for SRS list from where the code recognized SRS folder and created output based on SRR number
 
+#!/bin/bash
+#SBATCH --account=def-account name
+#SBATCH --job-name=bbmap_srs_array_418
+#SBATCH --time=2:00:00       # Adjust time as needed
+#SBATCH --mem=4G           # Adjust memory as needed
+#SBATCH --cpus-per-task=4    # Adjust CPUs as needed
+#SBATCH --array=1-418%25      # Array job, process 418, limit concurrency to 25
+#SBATCH --output=/home/account_name/scratch/bbmap_srs_array_418_%a.out
+#SBATCH --error=/home/account_name/scratch/bbmap_srs_array_418_%a.err
+
+# --- Load Modules ---
+module load bbmap
+
+# --- Variables ---
+SCRATCH_DIR="/home/account_name/scratch"              ##change account name
+ANALYSIS_FOLDER="$SCRATCH_DIR"
+TRIMMOMATIC_OUTPUT="$SCRATCH_DIR/trimmomatic_output"  # Corrected path
+BBMAP_OUTPUT="$SCRATCH_DIR/bbmap_output_501_1000"
+TOOLS_FOLDER="$SCRATCH_DIR/tools"
+
+# --- Input CSV file (now a local file) ---
+SRS_LIST_FILE="$SCRATCH_DIR/nw_SRS_417.csv"      ##change csv file for the list
+
+# --- Create main output directory ---
+mkdir -p "$BBMAP_OUTPUT"
+
+# --- Function to process paired data ---
+process_paired() {
+  local srs_dir="$1"
+ # Get the SRS folder name
+  srs_folder=$(basename "$srs_dir")
+
+  # Find paired clean files
+  cleanlist=$(find "$srs_dir" -maxdepth 1 -name "*1.clean.fq.gz")
+
+  echo "Running bbduk for paired data in $srs_dir"
+
+  for s in $cleanlist; do
+    # Extract SRR ID from the input filename
+    srr_id=$(echo "$s" | sed -E 's/.*\/(SRR[^/]+)\.1\.clean\.fq\.gz/\1/')
+
+    # Create SRR-specific output directory
+    local SRR_BBMAP_OUTPUT="$BBMAP_OUTPUT/${srr_id}"
+    mkdir -p "$SRR_BBMAP_OUTPUT"
+
+    s=$(echo "$s" | tr -d '\n')
+    in2=$(echo "$s" | sed -e "s/1.clean.fq.gz/2.clean.fq.gz/")
+    echo "Processing paired files: $s and $in2"
+
+    bbduk.sh \
+      threads=$SLURM_CPUS_PER_TASK \
+      in="$s" \
+      in2="$in2" \
+      k=31 \
+      ref="$EBROOTBBMAP/resources/sequencing_artifacts.fa.gz,$EBROOTBBMAP/resources/phix_adapters.fa.gz" \
+      out1="$SRR_BBMAP_OUTPUT/${srr_id}_1.paired.bbdukclean.fq.gz" \
+      out2="$SRR_BBMAP_OUTPUT/${srr_id}_2.paired.bbdukclean.fq.gz" \
+   minlength=60
+  done
+}
+
+# --- Function to process unpaired data ---
+process_unpaired() {
+  local srs_dir="$1"
+
+  # Get the SRS folder name
+  srs_folder=$(basename "$srs_dir")
+
+  # Find unpaired files
+  unpairedlist=$(find "$srs_dir" -maxdepth 1 -name "*unpaired.fq.gz")
+
+  echo "Running bbduk for unpaired data in $srs_dir"
+
+  for s in $unpairedlist; do
+    # Extract SRR ID from the full path (using a simpler regex)
+    srr_id=$(basename "$s" | sed 's/\..*//')
+
+    # Create SRR-specific output directory
+    local SRR_BBMAP_OUTPUT="$BBMAP_OUTPUT/${srr_id}"
+    mkdir -p "$SRR_BBMAP_OUTPUT"
+
+    s=$(echo "$s" | tr -d '\n')
+    echo "Processing unpaired file: $s"
+ bbduk.sh \
+      threads=$SLURM_CPUS_PER_TASK \
+      in="$s" \
+      k=31 \
+      ref="$EBROOTBBMAP/resources/sequencing_artifacts.fa.gz,$EBROOTBBMAP/resources/phix_adapters.fa.gz" \
+      out="$SRR_BBMAP_OUTPUT/$(basename "$s").bbdukclean.fq.gz" \
+      minlength=60
+  done
+}
+
+# --- Main processing loop ---
+# Read the specified line from the file
+srs_dir=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$SRS_LIST_FILE")
+
+# --- Process only if a line was read ---
+if [ -n "$srs_dir" ]; then
+    # --- Check if the SRS directory exists ---
+    if [ -d "$TRIMMOMATIC_OUTPUT/$srs_dir" ]; then
+      srs_dir="$TRIMMOMATIC_OUTPUT/$srs_dir"  # Prepend the full path
+
+      echo "Processing SRS directory: $srs_dir (from list, array task: ${SLURM_ARRAY_TASK_ID})"
+      process_paired "$srs_dir"
+      process_unpaired "$srs_dir"
+    else
+      echo "Warning: SRS directory '$srs_dir' not found in TRIMMOMATIC_OUTPUT. Skipping."
+  fi
+else
+  echo "SLURM_ARRAY_TASK_ID out of range or empty line in file. Skipping."
+fi
+
+echo "DONE"
 
 
 
