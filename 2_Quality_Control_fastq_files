@@ -252,6 +252,181 @@ fi
 echo "DONE"
 
 
+##Host contamination checking by BBMAP
+#reference genome (Human) download
+wget ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+gunzip GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+#index file creation (as beluga was unable to indexing from ref file, indexing was done again)
+#!/bin/bash
+#SBATCH --account=def-accountname
+#SBATCH --job-name=index_genome
+#SBATCH --time=12:00:00
+#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
+#SBATCH --output=index_genome.out
+#SBATCH --error=index_genome.err
+
+# Load the required environment
+module purge
+module load StdEnv/2023
+module load bbmap/39.06
+
+# Unset JAVA_TOOL_OPTIONS to avoid memory issues
+unset JAVA_TOOL_OPTIONS
+
+# Run BBMap indexing with increased memory allocation
+bbmap.sh -Xmx58G ref=/home/account_name/scratch/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna path=/home/account_name/scratch/ref/genome/1
+
+
+##BBMAP script for host contamination checking
+
+#!/bin/bash
+#SBATCH --account=def-accountname
+#SBATCH --job-name=bbmap_host_test_1001_1500
+#SBATCH --time=1:00:00
+#SBATCH --mem=32G
+#SBATCH --cpus-per-task=8
+#SBATCH --array=1-500
+#SBATCH --output=/home/account_name/scratch/log_host_contamination/bbmap_host_test_1001_1500_%A_%a.out
+#SBATCH --error=/home/account_name/scratch/log_host_contamination/bbmap_host_test_1001_1500_%A_%a.err
+
+# --- Load Modules ---
+module purge
+module load StdEnv/2023 bbmap/39.06
+module load java
+
+# --- Unset JAVA_TOOL_OPTIONS ---
+unset JAVA_TOOL_OPTIONS
+
+# --- Variables ---
+SCRATCH_DIR="/home/account_name/scratch"
+BBMAP_OUTPUT="$SCRATCH_DIR/bbmap_output_501_1000"
+INDEXED_REF="/home/account_name/scratch/ref/genome/1"  # Path to indexed genome
+OUTPUT_DIR="$SCRATCH_DIR/Host_contamination"
+
+# --- Create main output directory ---
+mkdir -p "$OUTPUT_DIR"
+
+# --- Get list of SRR directories (1001st to 1500th) ---
+mapfile -t SRR_DIRS < <(ls -d "$BBMAP_OUTPUT"/SRR* | sed -n '1001,1500p') ##the SRR folder selection (1001-1500)
+
+# --- Get the SRR directory for this task ---
+srr_dir="${SRR_DIRS[SLURM_ARRAY_TASK_ID-1]}"
+srr_name=$(basename "$srr_dir")
+srr_output_dir="$OUTPUT_DIR/$srr_name"
+
+# Create a separate output directory for each SRR ID
+mkdir -p "$srr_output_dir"
+
+echo "Processing: $srr_dir"
+echo "Output directory for $srr_name: $srr_output_dir"
+
+# --- Functions ---
+bbmap_QC2() {
+    echo "Running bbmap 2 for $srr_name"
+    
+    # Define the expected input file names
+    bbduklist=(
+        "$srr_dir/${srr_name}_1.paired.bbdukclean.fq.gz"
+        "$srr_dir/${srr_name}_2.paired.bbdukclean.fq.gz"
+        "$srr_dir/${srr_name}.1.unpaired.fq.gz.bbdukclean.fq.gz"
+        "$srr_dir/${srr_name}.2.unpaired.fq.gz.bbdukclean.fq.gz"
+    )
+
+    echo "Running bbwrap for $srr_name"
+    for s in "${bbduklist[@]}"; do
+        if [ -f "$s" ]; then
+            echo "Processing file: $s"
+            
+            # Determine read type and pair
+            if [[ "$s" == *"_1.paired."* ]]; then
+                in2_file=$(echo "$s" | sed 's/_1.paired./_2.paired./g')
+                read_type="paired"
+                output_prefix="$srr_output_dir/${srr_name}"
+            elif [[ "$s" == *"_2.paired."* ]]; then
+                # Skip processing for _2.paired files here, as they'll be handled with _1.paired
+                continue
+            else
+                in2_file="NULL"
+                read_type="unpaired"
+                output_prefix="$srr_output_dir/${srr_name}_$(basename "${s%.bbdukclean.fq.gz}")"
+            fi
+            
+            echo "bbwrap input: $s | Type: $read_type"
+            echo "Output prefix: $output_prefix"
+
+            # Run bbwrap with indexed reference
+            if [ "$read_type" == "paired" ]; then
+                bbwrap.sh -Xmx24G \
+                    threads=$SLURM_CPUS_PER_TASK \
+                    minid=0.95 \
+                    maxindel=3 \
+                    bwr=0.16 \
+                    bw=12 \
+                    quickmatch \
+                    fast \
+                    minhits=2 \
+                    path="$INDEXED_REF" \
+                    in="$s" \
+                    in2="$in2_file" \
+                    outm1="${output_prefix}_1.paired_human.fq.gz" \
+                    outm2="${output_prefix}_2.paired_human.fq.gz" \
+                    outu1="${output_prefix}_1.paired_clean.fq.gz" \
+                    outu2="${output_prefix}_2.paired_clean.fq.gz"
+            else
+                bbwrap.sh -Xmx24G \
+                    threads=$SLURM_CPUS_PER_TASK \
+                    minid=0.95 \
+                    maxindel=3 \
+                    bwr=0.16 \
+                    bw=12 \
+                    quickmatch \
+                    fast \
+                    minhits=2 \
+                    path="$INDEXED_REF" \
+                    in="$s" \
+                    outm="${output_prefix}_human.fq.gz" \
+                    outu="${output_prefix}_clean.fq.gz"
+            fi
+
+        else
+            echo "Warning: Input file not found: $s"
+        fi
+    done
+
+    # Run bbmerge on paired clean reads (if they exist)
+    echo "Running bbmerge for $srr_name"
+    paired_clean_1="$srr_output_dir/${srr_name}_1.paired_clean.fq.gz"
+    paired_clean_2="$srr_output_dir/${srr_name}_2.paired_clean.fq.gz"
+
+    if [ -f "$paired_clean_1" ] && [ -f "$paired_clean_2" ]; then
+        echo "Merging paired reads: $paired_clean_1 and $paired_clean_2"
+
+        bbmerge.sh -Xmx8G \
+            threads=4 \
+            in1="$paired_clean_1" \
+            in2="$paired_clean_2" \
+            out="$srr_output_dir/${srr_name}_merged.final.clean.fq.gz" \
+            outu1="$srr_output_dir/${srr_name}_1.unmerged.final.clean.fq.gz" \
+            outu2="$srr_output_dir/${srr_name}_2.unmerged.final.clean.fq.gz"
+
+        echo "bbmerge completed successfully for $srr_name"
+    else
+        echo "Warning: Paired clean reads not found for merging."
+        echo "Missing files:"
+        [ ! -f "$paired_clean_1" ] && echo "- $paired_clean_1"
+        [ ! -f "$paired_clean_2" ] && echo "- $paired_clean_2"
+    fi
+}
+
+# --- Main Process ---
+bbmap_QC2
+
+# --- Final Verification ---
+echo "Output files created in $srr_output_dir:"
+ls -lh "$srr_output_dir"
+
+echo "Process completed successfully for $srr_name."
 
 
 
