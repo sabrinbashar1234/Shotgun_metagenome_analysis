@@ -85,6 +85,7 @@ mkdir -p "$SCRATCH_DIR/trimmomatic_output/$SRS_FOLDER"
 # Run Trimmomatic
 java -Xmx2g -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE \
     -threads $SLURM_CPUS_PER_TASK \
+    -phred33 \  ##added this line according to suggestion
     -trimlog "$SCRATCH_DIR/trimmomatic_output/$SRS_FOLDER/$SRR_ID.trimlog" \
     "$INPUT_1" "$INPUT_2" \
     "$OUTPUT_1_CLEAN" "$OUTPUT_1_UNPAIRED" "$OUTPUT_2_CLEAN" "$OUTPUT_2_UNPAIRED" \
