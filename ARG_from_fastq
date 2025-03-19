@@ -1,3 +1,63 @@
+##As compute Canada has abricate available, I used this one using card database:
+
+
+#!/bin/bash
+#SBATCH --job-name=abricate_array_1500
+#SBATCH --account=def-accountname # Replace with your Compute Canada account
+#SBATCH --time=04:00:00  # Adjust as needed
+#SBATCH --mem=16G  # Adjust memory as needed
+#SBATCH --array=1-500  # Running on next 500 SRR folders (1001-1500)
+#SBATCH --cpus-per-task=8  # Adjust CPU allocation
+#SBATCH --output=/home/sbashar/scratch/log_abricate/abricate1500_%A_%a.out
+#SBATCH --error=/home/sbashar/scratch/log_abricate/abricate1500_%A_%a.err
+
+# Load necessary modules
+module load StdEnv/2020
+module load gcc/9.3.0
+module load abricate/1.0.0
+
+# Define input/output directories
+INPUT_DIR="/scratch/sbashar/spades_meta"
+OUTPUT_BASE="/scratch/sbashar/abricate_results_nw"
+
+# Get the next 500 SRR sample folders dynamically (1001-1500) that contain contigs.fasta
+mapfile -t SAMPLES < <(find "$INPUT_DIR" -maxdepth 1 -type d -name "SRR*" -exec test -f "{}/contigs.fasta" \; -print | sort | tail -n +1001 | head -500 | xargs -n 1 basename)  ##selecting 1001-1500 SRR* folders for contigs.fasta files
+
+# Ensure there are enough SRR samples to process
+if [[ ${#SAMPLES[@]} -lt 500 ]]; then
+    echo "Warning: Found only ${#SAMPLES[@]} SRR folders with contigs.fasta. Adjusting SLURM array size..."
+    exit 1
+fi
+
+# Get the current sample based on the array task ID
+SAMPLE=${SAMPLES[$SLURM_ARRAY_TASK_ID-1]}
+
+# Define paths
+INPUT_FILE="$INPUT_DIR/$SAMPLE/contigs.fasta"
+OUTPUT_DIR="$OUTPUT_BASE/$SAMPLE"
+mkdir -p "$OUTPUT_DIR"  # Create separate directory for each SRR
+
+# Run ABRicate on the assembled contigs
+abricate --db card "$INPUT_FILE" > "$OUTPUT_DIR/${SAMPLE}_abricate_card.tsv"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 module load StdEnv/2020
