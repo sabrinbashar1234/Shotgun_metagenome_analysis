@@ -1,3 +1,55 @@
+##The cleaned fastq file after Trimmomatic, bbduk and host contamination checking were used in metaphlan. Only the clean pair end reads were used.
+#here is the code for first 500 SRR folder
+
+
+#!/bin/bash
+#SBATCH --job-name=metaphlan_array
+#SBATCH --array=1-500
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --time=4:00:00
+#SBATCH --output=/scratch/sbashar/log_metaphlan/metaphlan_%A_%a.out
+#SBATCH --error=/scratch/sbashar/log_metaphlan/metaphlan_%A_%a.err
+
+# Load Bowtie2 module
+module load bowtie2/2.5.4
+
+# Set MetaPhlAn path
+METAPHLAN_BIN="/home/sbashar/.local/bin/metaphlan"
+
+# Define directories
+DATA_DIR="/scratch/sbashar/Host_contamination_final"
+OUTPUT_DIR="/scratch/sbashar/metaphlan_output"
+LOG_DIR="/scratch/sbashar/log_metaphlan"
+
+# Create output and log directories if they don't exist
+mkdir -p ${OUTPUT_DIR} ${LOG_DIR}
+
+# Get list of first 500 samples
+SAMPLES=($(ls -d ${DATA_DIR}/SRR* | sort | head -n 500))
+SAMPLE_DIR=${SAMPLES[$SLURM_ARRAY_TASK_ID-1]}
+
+# Define input files
+FWD_READ=$(ls ${SAMPLE_DIR}/*_1.paired_clean.fq.gz 2>/dev/null)
+REV_READ=$(ls ${SAMPLE_DIR}/*_2.paired_clean.fq.gz 2>/dev/null)
+
+# Check if input files exist
+if [[ ! -f "$FWD_READ" || ! -f "$REV_READ" ]]; then
+  echo "Error: Input files not found in ${SAMPLE_DIR}" >&2
+  exit 1
+fi
+
+# Define output file paths
+SAMPLE_NAME=$(basename ${SAMPLE_DIR})
+OUT_FILE="${OUTPUT_DIR}/${SAMPLE_NAME}_metaphlan.txt"
+BT2_OUT="${OUTPUT_DIR}/${SAMPLE_NAME}_bowtie2.bz2"
+
+# Run MetaPhlAn using the absolute path
+${METAPHLAN_BIN} ${FWD_READ},${REV_READ} \
+  --input_type fastq \
+  --bowtie2out ${BT2_OUT} \
+  --nproc 8 \
+  -o ${OUT_FILE}
 
 
 
