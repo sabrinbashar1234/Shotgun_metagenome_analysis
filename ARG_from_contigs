@@ -1,4 +1,5 @@
-##As compute Canada has abricate available, I used this one using card database:
+##As compute Canada has abricate available, I used this one using CARD database:
+#the input file is contigs.fasta which I got from spades assembly
 
 
 #!/bin/bash
