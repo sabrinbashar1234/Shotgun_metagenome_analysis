@@ -1,0 +1,34 @@
+## Clone the ARGs-OAP repository: (used beluga)
+git clone https://github.com/xinehc/args_oap.git
+cd args_oap
+##Ensure the required dependencies are available on Beluga:
+
+#Python 3.7 or higher 
+python --version
+#Diamond 2.0.15 or higher
+diamond version
+#BWA 0.7.17 or higher
+bwa
+#BLAST 2.12 or higher
+blastn -version
+#Samtools 1.15 or higher
+samtools --version
+ #Pandas
+
+##Install ARGs-OAP using Python's setup tools:
+python setup.py install --user
+#Add ARGs-OAP to my PATH:
+Edit your .bashrc or .bash_profile file (usually located in home directory). I can use a text editor like nano or vim.
+#Add the following line to the end of the file:
+export PATH="$PATH:/home/sbashar/.local/bin"
+#Apply the changes to your current session by running:
+source ~/.bashrc  or source ~/.bash_profile
+#Verify the installation:
+args_oap -h
+which args_oap
+args_oap --version
+args_oap -h
+args_oap stage_one -h
+args_oap stage_two -h
+
+
