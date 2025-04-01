@@ -101,7 +101,7 @@ echo "Stage One complete for $srr"
 #!/bin/bash
 #SBATCH --time=4:00:00
 #SBATCH --mem=64G
-#SBATCH --account=def-kozyrsky
+#SBATCH --account=def-account name
 #SBATCH --output=/home/sbashar/scratch/log_ARG_OAP_stage2_%j.log
 
 set -e
