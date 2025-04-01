@@ -31,4 +31,228 @@ args_oap -h
 args_oap stage_one -h
 args_oap stage_two -h
 
+##stage 1
+
+#!/bin/bash
+#SBATCH --time=12:00:00
+#SBATCH --mem=64G
+#SBATCH --account=def-account name
+#SBATCH --output=/home/sbashar/scratch/log_ARG_OAP_stage1/log_ARG_OAP_stage1_%A_%a.log
+#SBATCH --array=1-908%25
+
+set -e
+set -x
+
+# Load modules
+module load python/3.11.5
+module load diamond/2.1.8
+module load bwa/0.7.18
+module load blast+/2.14.1
+module load samtools/1.20
+
+# Set working directory
+cd /home/sbashar/scratch
+mkdir -p ARG_OAP_output_stage1
+cd ARG_OAP_output_stage1
+
+# Read SRR numbers from CSV file
+mapfile -t srr_folders < /home/sbashar/scratch/srr_vdnoiap.csv
+
+# Get the current SRR number based on the array task ID
+srr=${srr_folders[$SLURM_ARRAY_TASK_ID-1]}
+
+echo "Processing $srr - Stage One"
+
+# Check if this sample has already been processed
+if [ -d "${srr}_output" ] && [ -f "${srr}_output/extracted.fa" ]; then
+    echo "Sample $srr has already been processed. Skipping."
+    exit 0
+fi
+
+# Create sample-specific directory structure
+sample_dir="$srr"
+input_dir="$sample_dir/raw"
+mkdir -p "$input_dir"
+
+# Check if input files exist
+input_file1="/home/sbashar/scratch/Host_contamination_final/$srr/${srr}_1.paired_clean.fq.gz"
+input_file2="/home/sbashar/scratch/Host_contamination_final/$srr/${srr}_2.paired_clean.fq.gz"
+
+if [ ! -f "$input_file1" ] || [ ! -f "$input_file2" ]; then
+    echo "Error: Input files for $srr do not exist. Skipping this sample."
+    exit 1
+fi
+
+# Create symlinks with proper naming convention
+ln -sf "$input_file1" "$input_dir/${srr}_1.fq.gz"
+ln -sf "$input_file2" "$input_dir/${srr}_2.fq.gz"
+
+# Run stage_one with proper sample naming
+args_oap stage_one \
+    -i "$input_dir" \
+    -o "${srr}_output" \
+    -f fq.gz
+
+echo "Stage One complete for $srr"
+
+
+##stage 2
+
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --mem=64G
+#SBATCH --account=def-kozyrsky
+#SBATCH --output=/home/sbashar/scratch/log_ARG_OAP_stage2_%j.log
+
+set -e
+set -x
+
+# Load necessary modules
+module load python/3.11.5
+module load blast+/2.14.1
+
+# Set working directory
+cd /home/sbashar/scratch/ARG_OAP_output
+
+# Check ARG-OAP version
+echo "ARG-OAP version:"
+args_oap --version
+
+# List of samples
+samples=(SRR19421655 SRR19421656 SRR19421657 SRR19421658 SRR19421659)
+
+# Run stage_two for each sample individually
+for srr in "${samples[@]}"; do
+    echo "Processing $srr individually"
+    args_oap stage_two -i ${srr}_output -o ${srr}_final_output
+    echo "Finished processing $srr"
+    echo "Output files for $srr:"
+    ls -l ${srr}_final_output
+    echo "-------------------"
+done
+
+# Run stage_two for all samples together
+echo "Processing all samples together"
+args_oap stage_two \
+    -i SRR19421655_output \
+    -i SRR19421656_output \
+    -i SRR19421657_output \
+    -i SRR19421658_output \
+    -i SRR19421659_output \
+    -o final_output_all
+
+echo "Stage Two complete for all samples together"
+echo "Contents of combined output directory:"
+ls -l final_output_all
+
+echo "Script execution complete."
+
+##final merging based on rpkm
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --mem=64G
+#SBATCH --account=def-account name
+#SBATCH --output=/home/sbashar/scratch/log_ARG_OAP_stage2_%j.log
+
+set -e
+set -x
+
+# Load necessary modules
+module load python/3.11.5
+module load blast+/2.14.1
+
+# Set working directory
+cd /home/sbashar/scratch/ARG_OAP_output
+
+# Check ARG-OAP version
+echo "ARG-OAP version:"
+args_oap --version
+
+# List of samples
+samples=(SRR19421655 SRR19421656 SRR19421657 SRR19421658 SRR19421659)
+
+# Run stage_two for each sample individually
+for srr in "${samples[@]}"; do
+    echo "Processing $srr individually"
+    args_oap stage_two -i ${srr}_output -o ${srr}_final_output
+    echo "Finished processing $srr"
+    echo "Output files for $srr:"
+    ls -l ${srr}_final_output
+    echo "-------------------"
+done
+
+# Run stage_two for all samples together
+echo "Processing all samples together"
+args_oap stage_two \
+    -i SRR19421655_output \
+    -i SRR19421656_output \
+    -i SRR19421657_output \
+    -i SRR19421658_output \
+    -i SRR19421659_output \
+    -o final_output_all
+
+echo "Stage Two complete for all samples together"
+echo "Contents of combined output directory:"
+ls -l final_output_all
+
+echo "Script execution complete."
+[sbashar@beluga3 scratch]$ cat merged_infinity.sh
+#!/bin/bash
+
+# Define the output directory
+ARG_OAP_DIR="/home/sbashar/scratch/ARG_OAP_output"
+OUTPUT_FILE="$ARG_OAP_DIR/merged_rpkm_type.csv"
+
+# Find all rpkm.type.txt files
+FILES=($(find "$ARG_OAP_DIR" -type f -name "rpkm.type.txt"))
+
+# Initialize data structures
+declare -A data
+declare -A types
+declare -A samples
+
+# Process each file
+for FILE in "${FILES[@]}"; do
+    # Extract sample ID from the parent directory name
+    SAMPLE_ID=$(basename "$(dirname "$FILE")")
+    SAMPLE_ID=${SAMPLE_ID%_final_output}  # Remove suffix if present
+    samples["$SAMPLE_ID"]=1
+
+    # Read the file and store data
+    while IFS=$'\t' read -r type value; do
+        # Skip empty lines and lines where type is "type"
+        [[ -z "$type" || "$type" == "type" ]] && continue
+
+        # Store the type and value
+        types["$type"]=1
+        data["$type,$SAMPLE_ID"]="$value"
+    done < <(tr -d '\r' < "$FILE")  # Handle potential Windows line endings
+done
+
+# Sort the sample IDs and types for consistent output
+SAMPLE_IDS=($(printf '%s\n' "${!samples[@]}" | sort -V))
+TYPE_NAMES=($(printf '%s\n' "${!types[@]}" | sort))
+
+# Write the output file
+{
+    # Write header row
+    echo -n "type"
+    for SAMPLE in "${SAMPLE_IDS[@]}"; do
+        echo -n ",$SAMPLE"
+    done
+    echo ""
+
+    # Write data rows
+    for TYPE in "${TYPE_NAMES[@]}"; do
+        echo -n "$TYPE"
+        for SAMPLE in "${SAMPLE_IDS[@]}"; do
+            echo -n ",${data["$TYPE,$SAMPLE"]:-0}"
+        done
+        echo ""
+    done
+} > "$OUTPUT_FILE"
+
+echo "Merged file successfully created at: $OUTPUT_FILE"
+
+
 
