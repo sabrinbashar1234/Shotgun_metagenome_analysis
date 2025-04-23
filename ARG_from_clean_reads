@@ -56,7 +56,7 @@ mkdir -p ARG_OAP_output_stage1
 cd ARG_OAP_output_stage1
 
 # Read SRR numbers from CSV file
-mapfile -t srr_folders < /home/sbashar/scratch/srr_vdnoiap.csv
+mapfile -t srr_folders < /home/sbashar/scratch/SRR_1000.csv
 
 # Get the current SRR number based on the array task ID
 srr=${srr_folders[$SLURM_ARRAY_TASK_ID-1]}
@@ -96,8 +96,71 @@ args_oap stage_one \
 echo "Stage One complete for $srr"
 
 
-##stage 2
+##stage 2 (the code saved as a 'stage_2_array_500.sh')
 
+#!/bin/bash
+#SBATCH --time=4:00:00
+#SBATCH --mem=32G
+#SBATCH --account=def-kozyrsky
+#SBATCH --output=/home/sbashar/scratch/log_ARG_OAP_stage1/log_ARG_OAP_stage2_%A_%a.log
+#SBATCH --array=1-500  # Process first 500 samples
+
+set -e
+set -x
+
+# Load modules
+module load python/3.11.5
+module load blast+/2.14.1
+
+# Set working directory
+cd /home/sbashar/scratch/ARG_OAP_output_stage1
+
+# Read first 500 SRR numbers from CSV file
+mapfile -t srr_list < <(head -500 /home/sbashar/scratch/SRR_1000.csv)  ##for first 500 samples of the list, after 500 (lines 501-1028) the command used: mapfile -t srr_list < <(tail -n +501 /home/sbashar/scratch/SRR_1000.csv)
+srr=${srr_list[$SLURM_ARRAY_TASK_ID-1]}
+
+echo "Processing $srr - Stage Two"
+
+# Input/output paths
+input_dir="${srr}_output"
+output_dir="${srr}_final_output"
+
+# Check if already processed
+if [ -d "$output_dir" ]; then
+    echo "$output_dir already exists. Skipping."
+    exit 0
+fi
+
+# Run stage_two
+args_oap stage_two \
+    -i "$input_dir" \
+    -o "$output_dir"
+
+echo "Stage Two complete for $srr"
+ls -l "$output_dir"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+####################################################################################
 #!/bin/bash
 #SBATCH --time=4:00:00
 #SBATCH --mem=64G
