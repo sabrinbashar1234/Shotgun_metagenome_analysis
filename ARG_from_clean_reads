@@ -259,12 +259,85 @@ echo "Contents of combined output directory:"
 ls -l final_output_all
 
 echo "Script execution complete."
-[sbashar@beluga3 scratch]$ cat merged_infinity.sh
+
+
+##################################################################
+#merging type and subtype of ARG (rpkm)
+##need to modify the first column as in subtype file the first column has tab seperated word
+##fixing the name of subtype (rpkm) of first column
+ 
+cd /home/account_name/scratch/ARG_OAP_output_stage1 ##move to the directory where SRR*_final_output (rpkm_subtype) are
+
+for f in *_final_output/rpkm.subtype.txt; do
+    awk -F'\t' 'BEGIN{OFS=FS} {gsub(/ /, "_", $1); print}' "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+done
+
+##merging subtype (rpkm)
+[account_name@beluga4 scratch]$ cat  rpkm_subtype.sh
 #!/bin/bash
 
-# Define the output directory
-ARG_OAP_DIR="/home/sbashar/scratch/ARG_OAP_output"
-OUTPUT_FILE="$ARG_OAP_DIR/merged_rpkm_type.csv"
+# Define the output directory (adjust if needed)
+ARG_OAP_DIR="/home/account_name/scratch/ARG_OAP_output_stage1"
+OUTPUT_FILE="/home/account_name/scratch/merged_rpkm_subtype_1936.csv"
+
+# Find all rpkm.subtype.txt files
+FILES=($(find "$ARG_OAP_DIR" -type f -name "rpkm.subtype.txt"))
+
+# Initialize data structures
+declare -A data
+declare -A subtypes
+declare -A samples
+
+# Process each file
+for FILE in "${FILES[@]}"; do
+    # Extract sample ID from the parent directory name
+    SAMPLE_ID=$(basename "$(dirname "$FILE")")
+    SAMPLE_ID=${SAMPLE_ID%_final_output}  # Remove suffix if any
+    samples["$SAMPLE_ID"]=1
+
+    # Read the file and store data
+    while IFS=$'\t' read -r subtype value; do
+        [[ -z "$subtype" || "$subtype" == "subtype" ]] && continue
+        subtypes["$subtype"]=1
+        data["$subtype,$SAMPLE_ID"]="$value"
+    done < <(tr -d '\r' < "$FILE")
+done
+
+# Sort sample IDs and subtypes
+SAMPLE_IDS=($(printf '%s\n' "${!samples[@]}" | sort -V))
+SUBTYPE_NAMES=($(printf '%s\n' "${!subtypes[@]}" | sort))
+
+# Write output file
+{
+    echo -n "subtype"
+    for SAMPLE in "${SAMPLE_IDS[@]}"; do
+        echo -n ",$SAMPLE"
+    done
+    echo ""
+    for SUBTYPE in "${SUBTYPE_NAMES[@]}"; do
+        echo -n "$SUBTYPE"
+        for SAMPLE in "${SAMPLE_IDS[@]}"; do
+            echo -n ",${data["$SUBTYPE,$SAMPLE"]:-0}"
+        done
+        echo ""
+    done
+} > "$OUTPUT_FILE"
+
+echo "✅ Merged file created at: $OUTPUT_FILE"
+
+##Ensure script is executable
+chmod +x rpkm_subtype.sh
+##Run it in bash
+./rpkm_subtype.sh
+
+##merging ARG type (rpkm)
+
+[ACCOUNT@beluga4 scratch]$ cat merged_all_LOS_ARG.sh
+#!/bin/bash
+
+# Define the output directory (current working dir or adjust as needed)
+ARG_OAP_DIR="/home/account_name/scratch/ARG_OAP_output_stage1"
+OUTPUT_FILE="/home/account_name/scratch/merged_rpkm_type_1936.csv"
 
 # Find all rpkm.type.txt files
 FILES=($(find "$ARG_OAP_DIR" -type f -name "rpkm.type.txt"))
@@ -278,34 +351,28 @@ declare -A samples
 for FILE in "${FILES[@]}"; do
     # Extract sample ID from the parent directory name
     SAMPLE_ID=$(basename "$(dirname "$FILE")")
-    SAMPLE_ID=${SAMPLE_ID%_final_output}  # Remove suffix if present
+    SAMPLE_ID=${SAMPLE_ID%_final_output}  # Remove suffix
     samples["$SAMPLE_ID"]=1
 
     # Read the file and store data
     while IFS=$'\t' read -r type value; do
-        # Skip empty lines and lines where type is "type"
         [[ -z "$type" || "$type" == "type" ]] && continue
-
-        # Store the type and value
         types["$type"]=1
         data["$type,$SAMPLE_ID"]="$value"
-    done < <(tr -d '\r' < "$FILE")  # Handle potential Windows line endings
+    done < <(tr -d '\r' < "$FILE")
 done
 
-# Sort the sample IDs and types for consistent output
+# Sort sample IDs and types
 SAMPLE_IDS=($(printf '%s\n' "${!samples[@]}" | sort -V))
 TYPE_NAMES=($(printf '%s\n' "${!types[@]}" | sort))
 
-# Write the output file
+# Write output file
 {
-    # Write header row
     echo -n "type"
     for SAMPLE in "${SAMPLE_IDS[@]}"; do
         echo -n ",$SAMPLE"
     done
     echo ""
-
-    # Write data rows
     for TYPE in "${TYPE_NAMES[@]}"; do
         echo -n "$TYPE"
         for SAMPLE in "${SAMPLE_IDS[@]}"; do
@@ -315,7 +382,26 @@ TYPE_NAMES=($(printf '%s\n' "${!types[@]}" | sort))
     done
 } > "$OUTPUT_FILE"
 
-echo "Merged file successfully created at: $OUTPUT_FILE"
+echo "✅ Merged file created at: $OUTPUT_FILE"
+
+##Ensure script is executable
+chmod +x merged_all_LOS_ARG.sh
+##Run it in bash
+./merged_all_LOS_ARG.sh
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
