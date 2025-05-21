@@ -75,7 +75,7 @@ python /home/account-name/.local/lib/python3.11/site-packages/metaphlan/utils/me
 
 python
 import pandas as pd
-df = pd.read_csv('merged_abundance_table.txt', sep='\t')
+df = pd.read_csv('merged_abundance_table.txt', sep='\t', low_memory=False)
 df.rename(columns=lambda x: x.replace('_metaphlan', ''), inplace=True)
 df.to_csv('merged_abundance_table_cleaned.txt', sep='\t', index=False)
 exit()
