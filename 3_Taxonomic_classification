@@ -52,6 +52,73 @@ ${METAPHLAN_BIN} ${FWD_READ},${REV_READ} \
   -o ${OUT_FILE}
 
 
+##merge SRR*_metaphlan.txt files from metaphlan_output
+
+#!/bin/bash
+#SBATCH --job-name=merge_metaphlan_recent
+#SBATCH --output=merge_metaphlan_recent.out
+#SBATCH --error=merge_metaphlan_recent.err
+#SBATCH --time=24:00:00
+#SBATCH --mem=16G
+#SBATCH --cpus-per-task=1
+
+# Load your python environment if needed
+module load python
+
+# Move to the directory with the MetaPhlAn outputs
+cd /home/account-name/scratch/metaphlan_output
+
+# Merge all *_metaphlan.txt files
+python /home/account-name/.local/lib/python3.11/site-packages/metaphlan/utils/merge_metaphlan_tables.py *_metaphlan.txt > merged_taxa_abundance_table.txt
+
+###as the output files column name contain the word SRR*_metaphlan, I removed the suffix '_metaphlan'
+
+python
+import pandas as pd
+df = pd.read_csv('merged_abundance_table.txt', sep='\t')
+df.rename(columns=lambda x: x.replace('_metaphlan', ''), inplace=True)
+df.to_csv('merged_abundance_table_cleaned.txt', sep='\t', index=False)
+exit()
+
+###Generating seperate files at different taxonomic levels such as phylum, family, genus, species and strain
+
+#I named the script as 'split_metaphlan_levels.sh'
+
+cd /home/sbashar/scratch
+
+# Strain (lines containing "t__")
+awk -F'\t' 'NR==1 || $1 ~ /t__/' merged_abundance_table_cleaned.tsv > merged_strain.tsv
+
+# Species (lines with "s__" but no "t__")
+awk -F'\t' 'NR==1 || ($1 ~ /s__/ && $1 !~ /t__/)' merged_abundance_table_cleaned.tsv > merged_species.tsv
+
+# Genus (lines with "g__" but no "s__" or "t__")
+awk -F'\t' 'NR==1 || ($1 ~ /g__/ && $1 !~ /s__/ && $1 !~ /t__/)' merged_abundance_table_cleaned.tsv > merged_genus.tsv
+
+# Family (lines with "f__" but no "g__", "s__", or "t__")
+awk -F'\t' 'NR==1 || ($1 ~ /f__/ && $1 !~ /g__/ && $1 !~ /s__/ && $1 !~ /t__/)' merged_abundance_table_cleaned.tsv > merged_family.tsv
+
+# Phylum (lines with "p__" but no "c__", "o__", "f__", "g__", "s__", or "t__")
+awk -F'\t' 'NR==1 || ($1 ~ /p__/ && $1 !~ /c__/ && $1 !~ /o__/ && $1 !~ /f__/ && $1 !~ /g__/ && $1 !~ /s__/ && $1 !~ /t__/)' merged_abundance_table_cleaned.tsv > merged_phylum.tsv
+
+
+#to execute the script
+chmod +x split_metaphlan_levels.sh
+bash split_metaphlan_levels.sh
+
+#that generated 'merged_strain.tsv', 'merged_species.tsv', 'merged_genus.tsv', 'merged_family.tsv', and 'merged_phylum.tsv'
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##install Metaphlan:
 #upgraded Pip first
